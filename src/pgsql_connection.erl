@@ -41,7 +41,7 @@
     foreach/4,
     foreach/5,
     foreach/6,
-    
+
     % Cancel current query
     cancel/1,
 
@@ -57,7 +57,7 @@
     param_query/3,
     param_query/4,
     param_query/5,
-    
+
     convert_statement/1,
 
     % supervisor API
@@ -76,7 +76,7 @@
 %% Default settings
 %%--------------------------------------------------------------------
 
--define(REQUEST_TIMEOUT, infinity). 
+-define(REQUEST_TIMEOUT, infinity).
 -define(DEFAULT_HOST, "127.0.0.1").
 -define(DEFAULT_PORT, 5432).
 -define(DEFAULT_USER, "storage").
@@ -148,7 +148,7 @@
 
 %%--------------------------------------------------------------------
 %% @doc Open a connection to a database, throws an error if it failed.
-%% 
+%%
 -spec open(iodata() | open_options()) -> pgsql_connection().
 open([Option | _OptionsT] = Options) when is_tuple(Option) orelse is_atom(Option) ->
     open0(Options);
@@ -157,28 +157,28 @@ open(Database) ->
 
 %%--------------------------------------------------------------------
 %% @doc Open a connection to a database, throws an error if it failed.
-%% 
+%%
 -spec open(iodata(), iodata()) -> pgsql_connection().
 open(Database, User) ->
     open(Database, User, ?DEFAULT_PASSWORD).
 
 %%--------------------------------------------------------------------
 %% @doc Open a connection to a database, throws an error if it failed.
-%% 
+%%
 -spec open(iodata(), iodata(), iodata()) -> pgsql_connection().
 open(Database, User, Password) ->
     open(?DEFAULT_HOST, Database, User, Password).
 
 %%--------------------------------------------------------------------
 %% @doc Open a connection to a database, throws an error if it failed.
-%% 
+%%
 -spec open(string(), string(), string(), string()) -> pgsql_connection().
 open(Host, Database, User, Password) ->
     open(Host, Database, User, Password, []).
 
 %%--------------------------------------------------------------------
 %% @doc Open a connection to a database, throws an error if it failed.
-%% 
+%%
 -spec open(string(), string(), string(), string(), open_options()) -> pgsql_connection().
 open(Host, Database, User, Password, Options0) ->
     Options = [{host, Host}, {database, Database}, {user, User}, {password, Password} | Options0],
@@ -193,7 +193,7 @@ open0(Options) ->
 
 %%--------------------------------------------------------------------
 %% @doc Close a connection.
-%% 
+%%
 -spec close(pgsql_connection()) -> ok.
 close({pgsql_connection, Pid}) ->
     MonitorRef = erlang:monitor(process, Pid),
@@ -209,7 +209,7 @@ close({pgsql_connection, Pid}) ->
 %% <li>``{updated, NbRows}'' if the query was not a SELECT query.</li>
 %% </ul>
 %% (the return types are compatible with ODBC's sql_query function).
-%% 
+%%
 -spec sql_query(iodata(), pgsql_connection()) -> odbc_result_tuple() | {error, any()}.
 sql_query(Query, Connection) ->
     sql_query(Query, [], Connection).
@@ -242,7 +242,7 @@ param_query(Query, Parameters, QueryOptions, Timeout, Connection) ->
 
 %%--------------------------------------------------------------------
 %% @doc Perform a simple query.
-%% 
+%%
 -spec simple_query(iodata(), pgsql_connection()) -> result_tuple() | {error, any()}.
 simple_query(Query, Connection) ->
     simple_query(Query, [], Connection).
@@ -606,9 +606,9 @@ pgsql_setup_authenticate_md5_password(Socket, Salt, #state{options = Options} = 
     User = proplists:get_value(user, Options, ?DEFAULT_USER),
     Password = proplists:get_value(password, Options, ?DEFAULT_PASSWORD),
     % concat('md5', md5(concat(md5(concat(password, username)), random-salt)))
-    <<MD51Int:128>> = crypto:md5([Password, User]),
+    <<MD51Int:128>> = crypto:hash(md5, [Password, User]),
     MD51Hex = io_lib:format("~32.16.0b", [MD51Int]),
-    <<MD52Int:128>> = crypto:md5([MD51Hex, Salt]),
+    <<MD52Int:128>> = crypto:hash(md5, [MD51Hex, Salt]),
     MD52Hex = io_lib:format("~32.16.0b", [MD52Int]),
     MD5ChallengeResponse = ["md5", MD52Hex],
     pgsql_setup_authenticate_password(Socket, MD5ChallengeResponse, State0).
@@ -902,7 +902,7 @@ fold_finalize(_Tag, Acc) ->
     {ok, Acc}.
 
 map_fn(Row, {Function, Acc}) -> {Function, [Function(Row) | Acc]}.
-    
+
 map_finalize(_Tag, {_Function, Acc}) ->
     {ok, lists:reverse(Acc)}.
 
@@ -915,7 +915,7 @@ foreach_finalize(_Tag, _Function) ->
 
 %%--------------------------------------------------------------------
 %% @doc Handle parameter status messages. These can happen anytime.
-%% 
+%%
 handle_parameter(<<"integer_datetimes">> = Key, <<"on">> = Value, AsyncT, State0) ->
     set_parameter_async(Key, Value, AsyncT),
     State0#state{integer_datetimes = true};
@@ -1021,7 +1021,7 @@ decode_object(Object) ->
     ObjectUStr = re:replace(Object, <<" ">>, <<"_">>, [global, {return, list}]),
     ObjectULC = string:to_lower(ObjectUStr),
     [list_to_atom(ObjectULC)].
-    
+
 %%--------------------------------------------------------------------
 %% @doc Convert a native result to an odbc result.
 %%
@@ -1179,7 +1179,7 @@ process_active_data(PartialHeader, #state{socket = {SockModule, Sock}} = State0)
             error_logger:error_msg("Unexpected asynchronous error\n~p\n", [Error]),
             SockModule:close(Sock),
             State0#state{socket = closed}
-    end.    
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc Subscribe to notifications. We setup a monitor to clean the list up.
@@ -1205,9 +1205,9 @@ do_unsubscribe(Pid, List) ->
 %%
 call_and_retry(ConnPid, Command, Retry, Timeout) ->
     case gen_server:call(ConnPid, {do_query, Command}, Timeout) of
-        {error, closed} when Retry -> 
+        {error, closed} when Retry ->
             call_and_retry(ConnPid, Command, Retry, Timeout);
-        Other -> 
+        Other ->
             Other
     end.
 
