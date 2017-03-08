@@ -67,7 +67,7 @@ open_close_test_() ->
     ]}.
 
 reconnect_proxy_loop() ->
-    {ok, LSock} = gen_tcp:listen(35432, [{active, true}, binary, {reuseaddr, true}]),    
+    {ok, LSock} = gen_tcp:listen(35432, [{active, true}, binary, {reuseaddr, true}]),
     reconnect_proxy_loop0(LSock, undefined, undefined).
 
 reconnect_proxy_loop0(LSock, undefined, undefined) ->
@@ -232,13 +232,13 @@ sql_query_test_() ->
 copy_test_() ->
     {setup,
      fun() ->
-	     {ok, SupPid} = pgsql_connection_sup:start_link(),
-	     Conn = pgsql_connection:open("test", "test"),
-	     {SupPid, Conn}
+         {ok, SupPid} = pgsql_connection_sup:start_link(),
+         Conn = pgsql_connection:open("test", "test"),
+         {SupPid, Conn}
      end,
      fun({SupPid, Conn}) ->
-	     pgsql_connection:close(Conn),
-	     kill_sup(SupPid)
+         pgsql_connection:close(Conn),
+         kill_sup(SupPid)
      end,
      fun({_SupPid, Conn}) ->
      [
@@ -476,7 +476,7 @@ array_types_test_() ->
                     ?_assertEqual({{select,1},[{{array,[]}}]}, pgsql_connection:extended_query("select '{}'::text[]", [], Conn)),
                     ?_assertEqual({{select,1},[{{array,[]}}]}, pgsql_connection:extended_query("select '{}'::int[]", [], Conn)),
                     ?_assertEqual({{select,1},[{{array,[]}}]}, pgsql_connection:extended_query("select ARRAY[]::text[]", [], Conn)),
-                    
+
                     ?_assertEqual({{select,1},[{{array,[{array,[<<"2">>]},{array, [<<"3">>]}]}}]}, pgsql_connection:simple_query("select '{{\"2\"}, {\"3\"}}'::text[][]", Conn)),
                     ?_assertEqual({{select,1},[{{array,[{array,[1,2]}, {array, [3,4]}]}}]}, pgsql_connection:simple_query("select ARRAY[ARRAY[1,2], ARRAY[3,4]]", Conn)),
                     ?_assertEqual({{select,1},[{{array,[]}}]}, pgsql_connection:extended_query("select $1::bytea[]", [{array, []}], Conn)),
@@ -961,8 +961,8 @@ tz_test_() ->
         ?_assertEqual({{select,1},[{{14,4,3}}]},   pgsql_connection:extended_query("select '2015-01-03 11:04:03-0300'::timetz", [], PosTZConn)),
         ?_assertEqual({{select,1},[{{{2015,1,3},{14,4,3}}}]},   pgsql_connection:simple_query("select '2015-01-03 11:04:03-0300'::timestamptz", PosTZConn)),
         ?_assertEqual({{select,1},[{{{2015,1,3},{14,4,3}}}]},   pgsql_connection:extended_query("select '2015-01-03 11:04:03-0300'::timestamptz", [], PosTZConn)),
-        
-        
+
+
         ?_assertEqual({{select,1},[{{11,4,3}}]},   pgsql_connection:simple_query("select '2015-01-03 11:04:03'::time", NegTZConn)),
         ?_assertEqual({{select,1},[{{9,4,3}}]},   pgsql_connection:simple_query("select '2015-01-03 11:04:03'::timetz", NegTZConn)),
         ?_assertEqual({{select,1},[{{11,4,3}}]},    pgsql_connection:extended_query("select '2015-01-03 11:04:03'::time", [], NegTZConn)),
@@ -1154,7 +1154,7 @@ timeout_test_() ->
             ?assertEqual({{select, 1}, [{1}]}, pgsql_connection:simple_query("select 1", [], Conn)),
             ShowResult3 = pgsql_connection:simple_query("show statement_timeout", Conn),
             ?assertMatch({show, [{_}]}, ShowResult3),
-            
+
             % Only guarantee is that if the default was 0 (infinity), it is maintained
             % after a query with a default (infinity) timeout.
             if
@@ -1164,6 +1164,32 @@ timeout_test_() ->
         end)
     ]
     end}.
+
+json_types_test_() ->
+    {setup,
+        fun() ->
+                {ok, SupPid} = pgsql_connection_sup:start_link(),
+                Conn = pgsql_connection:open("test", "test"),
+                {SupPid, Conn}
+        end,
+        fun({SupPid, Conn}) ->
+                pgsql_connection:close(Conn),
+                kill_sup(SupPid)
+        end,
+        fun({_SupPid, Conn}) ->
+                [
+                    ?_assertEqual({{select,1},[{{json,<<"[{\"a\":\"foo\"},{\"b\":\"bar\"},{\"c\":\"baz\"}]">>}}]}, pgsql_connection:simple_query("select '[{\"a\":\"foo\"},{\"b\":\"bar\"},{\"c\":\"baz\"}]'::json", Conn)),
+                    ?_assertEqual({{select,1},[{{jsonb,<<"[{\"a\": \"foo\"}, {\"b\": \"bar\"}, {\"c\": \"baz\"}]">>}}]}, pgsql_connection:simple_query("select '[{\"a\":\"foo\"},{\"b\":\"bar\"},{\"c\":\"baz\"}]'::jsonb", Conn)),
+
+                    {updated, 1} = pgsql_connection:sql_query("create temporary table tmp (id integer primary key, a_json jsonb, b_json json)", Conn),
+                    {{insert,0,1}, []} = pgsql_connection:extended_query("insert into tmp (id, a_json) values ($1, $2)", [1, {jsonb, <<"[{\"a\":\"foo\"},{\"b\":\"bar\"},{\"c\":\"baz\"}]">>}], Conn),
+                    ?_assertEqual({{select,1},[{{jsonb,<<"[{\"a\": \"foo\"}, {\"b\": \"bar\"}, {\"c\": \"baz\"}]">>}}]}, pgsql_connection:simple_query("select a_json from tmp where id = 1", Conn)),
+                    {{insert,0,1}, []} = pgsql_connection:extended_query("insert into tmp (id, b_json) values ($1, $2)", [2, {json, <<"[{\"a\":\"foo\"},{\"b\":\"bar\"},{\"c\":\"baz\"}]">>}], Conn),
+                    ?_assertEqual({{select,1},[{{json,<<"[{\"a\": \"foo\"}, {\"b\": \"bar\"}, {\"c\": \"baz\"}]">>}}]}, pgsql_connection:simple_query("select b_json from tmp where id = 2", Conn))
+                ]
+        end
+    }.
+
 
 postgression_ssl_test_() ->
     {setup,
@@ -1495,7 +1521,7 @@ async_process_loop(TestProcess) ->
             TestProcess ! {self(), OtherMessage},
             async_process_loop(TestProcess)
     end.
-        
+
 notify_test_() ->
     {setup,
     fun() ->
@@ -1635,4 +1661,3 @@ notice_test_() ->
         end)
     ]
     end}.
-

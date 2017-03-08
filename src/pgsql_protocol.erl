@@ -22,10 +22,10 @@
     encode_copy_data_message/1,
     encode_copy_done/0,
     encode_copy_fail/1,
-    
+
     decode_message/2,
     decode_row/4,
-    
+
     bind_requires_statement_description/1
     ]).
 
@@ -96,7 +96,7 @@ encode_copy_done() ->
 -spec encode_copy_fail(iodata()) -> binary().
 encode_copy_fail(ErrorMessage) ->
     encode_string_message($f, ErrorMessage).
-    
+
 %%--------------------------------------------------------------------
 %% @doc Encode a parse message.
 %%
@@ -158,6 +158,12 @@ encode_parameter({array, List}, Type, OIDMap, IntegerDateTimes) ->
 encode_parameter(Binary, ?TEXTOID, _OIDMap, _IntegerDateTimes) when is_binary(Binary) ->
     Size = byte_size(Binary),
     {binary, <<Size:32/integer, Binary/binary>>};
+encode_parameter({json, Binary}, _Type, _OIDMap, _IntegerDateTimes) ->
+    Size = byte_size(Binary),
+    {binary, <<Size:32/integer, Binary/binary>>};
+encode_parameter({jsonb, Binary}, _Type, _OIDMap, _IntegerDateTimes) ->
+    Size = byte_size(Binary),
+    {binary, <<(Size+1):32/integer, ?JSONB_VERSION_1:8, Binary/binary>>};
 encode_parameter(Binary, _Type, _OIDMap, _IntegerDateTimes) when is_binary(Binary) ->
     % Encode the binary as text if it is a UUID.
     IsUUID = case Binary of
@@ -332,7 +338,7 @@ encode_array_text([], Acc) ->
     Binary = list_to_binary([<<"{">>, JoinedStrings, <<"}">>]),
     Size = byte_size(Binary),
     {text, <<Size:32, Binary/binary>>}.
-    
+
 escape_array_text(Text) when byte_size(Text) =:= 4 ->
     case string:to_lower(unicode:characters_to_list(Text)) of
         "null" -> <<$", Text/binary, $">>;
@@ -455,7 +461,7 @@ encode_cancel_message(ProcID, Secret) ->
 %% @doc Encode a string message.
 %%
 -spec encode_string_message(byte(), iodata()) -> binary().
-encode_string_message(Identifier, String) ->    
+encode_string_message(Identifier, String) ->
     StringBin = iolist_to_binary(String),
     MessageLen = byte_size(StringBin) + 5,
     <<Identifier, MessageLen:32/integer, StringBin/binary, 0>>.
@@ -570,7 +576,7 @@ decode_data_row_values0(<<-1:32/signed-integer, Rest/binary>>, N, Acc) when N > 
 decode_data_row_values0(<<ValueLen:32/integer, ValueBin:ValueLen/binary, Rest/binary>>, N, Acc) when N > 0 ->
     decode_data_row_values0(Rest, N - 1, [ValueBin | Acc]);
 decode_data_row_values0(<<_/binary>>, _N, _Acc) -> {error, invalid_value_len}.
-        
+
 decode_empty_query_response_message(<<>>) -> {ok, #empty_query_response{}};
 decode_empty_query_response_message(Payload) ->
     {error, {unknown_message, empty_query_response, Payload}}.
@@ -957,6 +963,7 @@ decode_array_text0(<<$\\, C, Rest/binary>>, true, Acc) ->
 decode_array_text0(<<C, Rest/binary>>, Quoted, Acc) ->
     decode_array_text0(Rest, Quoted, [C | Acc]).
 
+decode_value_bin(?JSONBOID, <<?JSONB_VERSION_1:8, Value/binary>>, _OIDMap, _IntegerDateTimes) -> Value;
 decode_value_bin(?BOOLOID, <<0>>, _OIDMap, _IntegerDateTimes) -> false;
 decode_value_bin(?BOOLOID, <<1>>, _OIDMap, _IntegerDateTimes) -> true;
 decode_value_bin(?BYTEAOID, Value, _OIDMap, _IntegerDateTimes) -> Value;
