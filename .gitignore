@@ -1,3 +1,5 @@
+_build
+.rebar3
 .eunit
 ebin
 .DS_Store
